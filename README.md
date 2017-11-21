@@ -309,7 +309,7 @@ FB15K:
 		def loss_func(self):
 			pass
 
-####模型实现
+#### 模型实现
 
 	#实现 TransE
 	class TransE(Model)
