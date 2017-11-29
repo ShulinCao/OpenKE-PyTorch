@@ -25,7 +25,6 @@ class TransR(Model):
 			line=line.split()
 			for j in range(self.config.ent_size):
 				self.ent_embeddings.weight.data[i][j]=float(line[j])
-				print self.ent_embeddings.weight.data[i][j]
 		fin.close()
 		fin=open("relation2vec.txt","r")
 		for i in range(self.config.relTotal):
@@ -33,7 +32,6 @@ class TransR(Model):
 			line=line.split()
 			for j in range(self.config.rel_size):
 				self.rel_embeddings.weight.data[i][j]=float(line[j])
-				print self.rel_embeddings.weight.data[i][j]
 		fin.close()	
 		'''	
 		
