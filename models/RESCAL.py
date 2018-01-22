@@ -17,8 +17,8 @@ class RESCAL(Model):
 	def _calc(self,h,t,r):
 		return h*torch.matmul(r,t)
 	def loss_func(self,p_score,n_score):
-		criterion= nn.MarginRankingLoss(self.config.margin,False)
-		y=Variable(torch.Tensor([1]))
+		criterion= nn.MarginRankingLoss(self.config.margin,False).cuda()
+		y=Variable(torch.Tensor([1])).cuda()
 		loss=criterion(p_score,n_score,y)
 		return loss
 	def forward(self):
@@ -36,18 +36,10 @@ class RESCAL(Model):
 		n_score=torch.sum(torch.mean(_n_score,1,False),1)
 		loss=self.loss_func(p_score,n_score)
 		return loss
-
-	def save_parameters(self):
-		fent_emb = file("ent_embedding2vec.vec", "wb")
-		frel_mat=file("rel_matrices2vec.vec","wb")
-		cnt=0
-		for param in self.parameters():
-			if cnt==0:
-				np.savetxt(fent_emb,param.data.numpy(),fmt='%.6f\t')
-				cnt=1
-			elif cnt==1:
-				np.savetxt(frel_mat,param.data.numpy(),fmt='%.6f\t')
-				cnt=2
-		fent_emb.close()
-		frel_mat.close()
+	def predict(self, predict_h, predict_t, predict_r):
+		p_h_e=self.ent_embeddings(Variable(torch.from_numpy(predict_h))).view(-1,self.config.hidden_size,1)
+		p_t_e=self.ent_embeddings(Variable(torch.from_numpy(predict_t))).view(-1,self.config.hidden_size,1)
+		p_r_e=self.rel_matrices(Variable(torch.from_numpy(predict_r))).view(-1,self.config.hidden_size,self.config.hidden_size)
+		p_score=-torch.sum(self._calc(p_h_e, p_t_e, p_r_e),1)
+		return p_score.cpu()
 		

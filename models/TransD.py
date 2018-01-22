@@ -23,8 +23,8 @@ class TransD(Model):
 	def _calc(self,h,t,r):
 		return torch.abs(h+r-t)
 	def loss_func(self,p_score,n_score):
-		criterion= nn.MarginRankingLoss(self.config.margin,False)
-		y=Variable(torch.Tensor([-1]))
+		criterion= nn.MarginRankingLoss(self.config.margin,False).cuda()
+		y=Variable(torch.Tensor([-1])).cuda()
 		loss=criterion(p_score,n_score,y)
 		return loss
 	def forward(self):
@@ -54,28 +54,19 @@ class TransD(Model):
 		n_score=torch.sum(_n_score,1)
 		loss=self.loss_func(p_score,n_score)
 		return loss
-	def save_parameters(self):
-		fent_emb = file("ent_embedding2vec.vec", "wb")
-		frel_emb=file("rel_embedding2vec.vec","wb")
-		fent_transf=file("ent_transfer2vec.vec","wb")
-		frel_transf=file("rel_transfer2vec.vec","wb")
-		cnt=0
-		for param in self.parameters():
-			if cnt==0:
-				np.savetxt(fent_emb,param.data.numpy(),fmt='%.6f\t')
-				cnt=1
-			elif cnt==1:
-				np.savetxt(frel_emb,param.data.numpy(),fmt='%.6f\t')
-				cnt=2
-			elif cnt==2:
-				np.savetxt(fent_transf,param.data.numpy(),fmt='%.6f\t')
-				cnt=3
-			elif cnt==3:
-				np.savetxt(frel_transf,param.data.numpy(),fmt='%.6f\t')
-		fent_emb.close()
-		frel_emb.close()
-		fent_transf.close()
-		frel_transf.close()
+	def predict(self, predict_h, predict_t, predict_r):
+		p_h_e=self.ent_embeddings(Variable(torch.from_numpy(predict_h)))
+		p_t_e=self.ent_embeddings(Variable(torch.from_numpy(predict_t)))
+		p_r_e=self.rel_embeddings(Variable(torch.from_numpy(predict_r)))
+		p_h_t=self.ent_transfer(Variable(torch.from_numpy(predict_h)))
+		p_t_t=self.ent_transfer(Variable(torch.from_numpy(predict_t)))
+		p_r_t=self.rel_transfer(Variable(torch.from_numpy(predict_r)))
+		p_h=self._transfer(p_h_e,p_h_t,p_r_t)
+		p_t=self._transfer(p_t_e,p_t_t,p_r_t)
+		p_r=p_r_e
+		_p_score = self._calc(p_h, p_t, p_r)
+		p_score=torch.sum(_p_score,1)
+		return p_score.cpu()
 		
 
 			

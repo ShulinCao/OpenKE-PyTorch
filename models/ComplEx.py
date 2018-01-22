@@ -12,7 +12,7 @@ class ComplEx(Model):
 		self.ent_im_embeddings=nn.Embedding(self.config.entTotal,self.config.hidden_size)
 		self.rel_re_embeddings=nn.Embedding(self.config.relTotal,self.config.hidden_size)
 		self.rel_im_embeddings=nn.Embedding(self.config.relTotal,self.config.hidden_size)
-		self.softplus=nn.Softplus()
+		self.softplus=nn.Softplus().cuda()
 		self.init_weights()
 	def init_weights(self):
 		nn.init.xavier_uniform(self.ent_re_embeddings.weight.data)
@@ -40,29 +40,18 @@ class ComplEx(Model):
 		#Calculating loss to get what the framework will optimize
 		loss =  self.loss_func(loss,regul)
 		return loss
-	def save_parameters(self):
-		fent_re=open("entity_re2vec.vec","wb")
-		fent_im=open("entity_im2vec.vec","wb")
-		frel_re=open("relation_re2vec.vec","wb")
-		frel_im=open("relation_im2vec.vec","wb")
-		cnt=0
-		for param in self.parameters():
-			if cnt==0:
-				np.savetxt(fent_re,param.data.numpy(),fmt='%.6f\t')
-				cnt=1
-			elif cnt==1:
-				np.savetxt(fent_im,param.data.numpy(),fmt='%.6f\t')
-				cnt=2
-			elif cnt==2:
-				np.savetxt(frel_re,param.data.numpy(),fmt='%.6f\t')
-				cnt=3
-			elif cnt==3:
-				np.savetxt(frel_im,param.data.numpy(),fmt='%.6f\t')
-		fent_re.close()
-		fent_im.close()
-		frel_re.close()
-		frel_im.close()
-	
+	def predict(self, predict_h, predict_t, predict_r):
+		p_re_h=self.ent_re_embeddings(Variable(torch.from_numpy(predict_h)))
+		p_re_t=self.ent_re_embeddings(Variable(torch.from_numpy(predict_t)))
+		p_re_r=self.rel_re_embeddings(Variable(torch.from_numpy(predict_r)))
+		p_im_h=self.ent_im_embeddings(Variable(torch.from_numpy(predict_h)))
+		p_im_t=self.ent_im_embeddings(Variable(torch.from_numpy(predict_t)))
+		p_im_r=self.rel_im_embeddings(Variable(torch.from_numpy(predict_r)))
+		p_score = -self._calc(p_re_h, p_im_h, p_re_t, p_im_t, p_re_r, p_im_r)
+		return p_score.cpu()
+
+
+
 	
 	
 	

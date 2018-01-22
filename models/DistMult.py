@@ -10,12 +10,11 @@ class DistMult(Model):
 		super(DistMult,self).__init__(config)
 		self.ent_embeddings=nn.Embedding(self.config.entTotal,self.config.hidden_size)
 		self.rel_embeddings=nn.Embedding(self.config.relTotal,self.config.hidden_size)
-		self.softplus=nn.Softplus()
+		self.softplus=nn.Softplus().cuda()
 		self.init_weights()
 	def init_weights(self):
 		nn.init.xavier_uniform(self.ent_embeddings.weight.data)
 		nn.init.xavier_uniform(self.rel_embeddings.weight.data)
-		
 	def _calc(self,h,t,r):
 		return torch.sum(h*t*r,1,False)
 	def loss_func(self,loss,regul):
@@ -34,17 +33,10 @@ class DistMult(Model):
 		#Calculating loss to get what the framework will optimize
 		loss =  self.loss_func(loss,regul)
 		return loss
-	def save_parameters(self):
-		fent_emb = file("ent_embedding2vec.vec", "wb")
-		frel_emb=file("rel_embedding2vec.vec","wb")
-		cnt=0
-		for param in self.parameters():
-			if cnt==0:
-				np.savetxt(fent_emb,param.data.numpy(),fmt='%.6f\t')
-				cnt=1
-			elif cnt==1:
-				np.savetxt(frel_emb,param.data.numpy(),fmt='%.6f\t')
-				cnt=2
-		fent_emb.close()
-		frel_emb.close()
+	def predict(self, predict_h, predict_t, predict_r):
+		p_e_h=self.ent_embeddings(Variable(torch.from_numpy(predict_h)))
+		p_e_t=self.ent_embeddings(Variable(torch.from_numpy(predict_t)))
+		p_e_r=self.rel_embeddings(Variable(torch.from_numpy(predict_r)))
+		p_score=-self._calc(p_e_h,p_e_t,p_e_r)
+		return p_score.cpu()
 		
