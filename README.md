@@ -233,6 +233,8 @@ There are four approaches to test models:
     con.import_variables("./res/model.vec.tf")
     con.test()
 
+Note that you can only load model parameters when model configuration finished.
+
 ### Getting the embedding matrix
 
 There are four approaches to get the embedding matrix.
@@ -280,7 +282,7 @@ There are four approaches to get the embedding matrix.
 	# Get the embeddings (python list)
 	embeddings = con.get_parameters()
   
-(4) immediately get the embeddings after training the model.
+(4) Immediately get the embeddings after training the model.
 
 	...
 	...
