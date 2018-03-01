@@ -15,10 +15,10 @@ class Config(object):
 	def __init__(self):
 		self.lib = ctypes.cdll.LoadLibrary("./release/Base.so")
 		self.lib.sampling.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int64, ctypes.c_int64, ctypes.c_int64]
-		self.lib.getHeadBatch.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-		self.lib.getTailBatch.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
-		self.lib.testHead.argtypes = [ctypes.c_void_p]
-		self.lib.testTail.argtypes = [ctypes.c_void_p]
+		self.lib.getTestBatch.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+		self.lib.getValidBatch.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
+		self.lib.getBestThreshold.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+		self.lib.test.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
 		self.test_flag = False
 		self.in_path = "./"
 		self.out_path = "./"
@@ -54,6 +54,8 @@ class Config(object):
 			self.relTotal = self.lib.getRelationTotal()
 			self.entTotal = self.lib.getEntityTotal()
 			self.trainTotal = self.lib.getTrainTotal()
+			self.testTotal = self.lib.getTestTotal()
+			self.validTotal = self.lib.getValidTotal()
 			self.batch_size = self.lib.getTrainTotal() / self.nbatches
 			self.batch_seq_size = self.batch_size * (1 + self.negative_ent + self.negative_rel)
 			self.batch_h = np.zeros(self.batch_size * (1 + self.negative_ent + self.negative_rel), dtype = np.int64)
@@ -66,12 +68,33 @@ class Config(object):
 			self.batch_y_addr = self.batch_y.__array_interface__['data'][0]
 		if self.test_flag:
 			self.lib.importTestFiles()
-			self.test_h = np.zeros(self.lib.getEntityTotal(), dtype = np.int64)
-			self.test_t = np.zeros(self.lib.getEntityTotal(), dtype = np.int64)
-			self.test_r = np.zeros(self.lib.getEntityTotal(), dtype = np.int64)
+			self.lib.importTypeFiles()
+
+			self.test_h = np.zeros(self.lib.getTestTotal(), dtype = np.int64)
+			self.test_t = np.zeros(self.lib.getTestTotal(), dtype = np.int64)
+			self.test_r = np.zeros(self.lib.getTestTotal(), dtype = np.int64)
+			self.test_neg_h = np.zeros(self.lib.getTestTotal(), dtype = np.int64)
+			self.test_neg_t = np.zeros(self.lib.getTestTotal(), dtype = np.int64)
+			self.test_neg_r = np.zeros(self.lib.getTestTotal(), dtype = np.int64)
 			self.test_h_addr = self.test_h.__array_interface__['data'][0]
 			self.test_t_addr = self.test_t.__array_interface__['data'][0]
 			self.test_r_addr = self.test_r.__array_interface__['data'][0]
+			self.test_neg_h_addr = self.test_neg_h.__array_interface__['data'][0]
+			self.test_neg_t_addr = self.test_neg_t.__array_interface__['data'][0]
+			self.test_neg_r_addr = self.test_neg_r.__array_interface__['data'][0]
+
+			self.valid_h = np.zeros(self.lib.getValidTotal(), dtype = np.int64)
+			self.valid_t = np.zeros(self.lib.getValidTotal(), dtype = np.int64)
+			self.valid_r = np.zeros(self.lib.getValidTotal(), dtype = np.int64)
+			self.valid_neg_h = np.zeros(self.lib.getValidTotal(), dtype = np.int64)
+			self.valid_neg_t = np.zeros(self.lib.getValidTotal(), dtype = np.int64)
+			self.valid_neg_r = np.zeros(self.lib.getValidTotal(), dtype = np.int64)
+			self.valid_h_addr = self.valid_h.__array_interface__['data'][0]
+			self.valid_t_addr = self.valid_t.__array_interface__['data'][0]
+			self.valid_r_addr = self.valid_r.__array_interface__['data'][0]
+			self.valid_neg_h_addr = self.valid_neg_h.__array_interface__['data'][0]
+			self.valid_neg_t_addr = self.valid_neg_t.__array_interface__['data'][0]
+			self.valid_neg_r_addr = self.valid_neg_r.__array_interface__['data'][0]
 
 	def get_ent_total(self):
 		return self.entTotal
@@ -100,7 +123,7 @@ class Config(object):
 	def set_in_path(self, path):
 		self.in_path = path
 
-	def set_out_path(self, path):
+	def set_out_files(self, path):
 		self.out_path = path
 
 	def set_bern(self, bern):
@@ -158,6 +181,7 @@ class Config(object):
 
 	def restore_pytorch(self):
 		self.trainModel.load_state_dict(torch.load(self.importName))
+		#self.trainModel.cuda()
 
 	def export_variables(self, path = None):
 		if path == None:
@@ -243,15 +267,15 @@ class Config(object):
 	def test(self):
 		if self.importName != None:
 			self.restore_pytorch()
-		total = self.lib.getTestTotal()
-		for epoch in range(total):
-			self.lib.getHeadBatch(self.test_h_addr, self.test_t_addr, self.test_r_addr)
-			res = self.trainModel.predict(self.test_h, self.test_t, self.test_r)
-			self.lib.testHead(res.data.numpy().__array_interface__['data'][0])
+		self.lib.getValidBatch(self.valid_h_addr, self.valid_t_addr, self.valid_r_addr, self.valid_neg_h_addr, self.valid_neg_t_addr, self.valid_neg_r_addr)
+		res_pos = self.trainModel.predict(self.valid_h, self.valid_t, self.valid_r)
+		res_neg = self.trainModel.predict(self.valid_neg_h, self.valid_neg_t, self.valid_neg_r)
+		print "res_pos",res_pos
+		print "res_neg",res_neg
+		self.lib.getBestThreshold(res_pos.data.numpy().__array_interface__['data'][0], res_neg.data.numpy().__array_interface__['data'][0])
 
-			self.lib.getTailBatch(self.test_h_addr, self.test_t_addr, self.test_r_addr)
-			res = self.trainModel.predict(self.test_h, self.test_t, self.test_r)
-			self.lib.testTail(res.data.numpy().__array_interface__['data'][0])
-			if self.log_on:
-				print epoch
-		self.lib.test()
+		self.lib.getTestBatch(self.test_h_addr, self.test_t_addr, self.test_r_addr, self.test_neg_h_addr, self.test_neg_t_addr, self.test_neg_r_addr)
+
+		res_pos = self.trainModel.predict(self.test_h, self.test_t, self.test_r)
+		res_neg = self.trainModel.predict(self.test_neg_h, self.test_neg_t, self.test_neg_r)
+		self.lib.test(res_pos.data.numpy().__array_interface__['data'][0], res_neg.data.numpy().__array_interface__['data'][0])
